@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>경기지점 대리점 찾기</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+  background: #f0f2f5;
+  color: #1a1a2e;
+  min-height: 100vh;
+}
+
+/* 헤더 */
+.header {
+  background: linear-gradient(135deg, #03C75A 0%, #02a84b 100%);
+  color: white;
+  padding: 20px 16px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(3,199,90,0.35);
+}
+.header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+.header p { font-size: 12px; opacity: 0.85; margin-top: 3px; }
+
+/* GPS 영역 */
+.gps-section {
+  padding: 14px 16px;
+  background: white;
+  border-bottom: 1px solid #e8eaed;
+}
+.gps-btn {
+  width: 100%;
+  padding: 13px;
+  background: #03C75A;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.gps-btn:active { transform: scale(0.98); }
+.gps-btn.loading { background: #94a3b8; pointer-events: none; }
+.gps-btn.done { background: #0284c7; }
+.location-info {
+  display: none;
+  margin-top: 9px;
+  padding: 9px 12px;
+  background: #f0fdf4;
+  border-radius: 8px;
+  border: 1px solid #bbf7d0;
+  font-size: 12px;
+  color: #065f46;
+}
+.location-info.show { display: block; }
+
+/* 검색/필터 */
+.filter-section {
+  padding: 10px 16px;
+  background: white;
+  border-bottom: 1px solid #e8eaed;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.search-box {
+  flex: 1;
+  padding: 10px 13px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  background: #fafafa;
+}
+.search-box:focus { border-color: #03C75A; background: white; }
+
+/* 지역 필터 탭 */
+.region-filter {
+  padding: 10px 16px;
+  background: white;
+  border-bottom: 1px solid #e8eaed;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.region-filter::-webkit-scrollbar { display: none; }
+.region-tab {
+  padding: 6px 13px;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  background: white;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.15s;
+}
+.region-tab.active {
+  background: #03C75A;
+  border-color: #03C75A;
+  color: white;
+}
+
+/* 결과 헤더 */
+.result-bar {
+  padding: 9px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e8eaed;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #64748b;
+}
+.result-bar strong { color: #03C75A; }
+.dist-notice {
+  display: none;
+  font-size: 11px;
+  color: #f59e0b;
+}
+.dist-notice.show { display: block; }
+
+/* 카드 리스트 */
+.branch-list {
+  padding: 10px 16px 80px;
+}
+.branch-card {
+  background: white;
+  border-radius: 16px;
+  padding: 15px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  animation: fadeIn 0.25s ease;
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.branch-card.near-1 { border-color: #fbbf24; }
+.branch-card.near-2 { border-color: #94a3b8; }
+.branch-card.near-3 { border-color: #cd7c54; }
+@keyframes fadeIn { from{ opacity:0;transform:translateY(5px); } to{ opacity:1;transform:translateY(0); } }
+
+/* 카드 상단 */
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.rank-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.rank-1 { background: #fbbf24; color: white; }
+.rank-2 { background: #94a3b8; color: white; }
+.rank-3 { background: #cd7c54; color: white; }
+.rank-n { background: #f1f5f9; color: #64748b; }
+
+.name-area { flex: 1; min-width: 0; }
+.card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+.card-manager {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 3px;
+}
+.card-manager span { color: #03C75A; font-weight: 600; }
+
+.card-dist {
+  flex-shrink: 0;
+  text-align: right;
+}
+.dist-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: #03C75A;
+  line-height: 1;
+}
+.dist-label { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+.dist-unknown { font-size: 12px; color: #cbd5e1; }
+
+/* 태그 */
+.card-tags {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.tag {
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.tag-region { background: #eff6ff; color: #3b82f6; }
+.tag-city { background: #f0fdf4; color: #16a34a; }
+
+/* 주소 */
+.card-address {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+/* 실적 */
+.perf-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 11px;
+}
+.perf-box {
+  flex: 1;
+  background: #f8fafc;
+  border-radius: 9px;
+  padding: 8px 10px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+.perf-label {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.perf-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+}
+.perf-value.highlight { color: #03C75A; }
+
+/* 액션 버튼 */
+.card-actions {
+  display: flex;
+  gap: 7px;
+}
+.btn-car {
+  flex: 1;
+  padding: 11px 8px;
+  background: #03C75A;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background 0.15s;
+}
+.btn-car:active { background: #02a84b; }
+.btn-icon {
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.btn-icon.walk { background: #f0fdf4; border-color: #bbf7d0; }
+.btn-icon.transit { background: #eff6ff; border-color: #bfdbfe; }
+.btn-icon:active { opacity: 0.7; }
+
+/* 빈 상태 */
+.empty { text-align: center; padding: 60px 20px; color: #94a3b8; }
+.empty .ico { font-size: 44px; margin-bottom: 12px; }
+
+/* 상단 버튼 */
+.scroll-top {
+  position: fixed;
+  bottom: 24px;
+  right: 18px;
+  width: 42px;
+  height: 42px;
+  background: rgba(30,41,59,0.85);
+  backdrop-filter: blur(8px);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  transition: opacity 0.2s;
+}
+.scroll-top.show { display: flex; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📍 경기지점 대리점 찾기</h1>
+  <p>내 위치 기준 가까운 대리점 · 실적 · 담당 매니저 확인</p>
+</div>
+
+<div class="gps-section">
+  <button class="gps-btn" id="gpsBtn" onclick="getLocation()">
+    <span>📡</span> 내 현재 위치 확인하기
+  </button>
+  <div class="location-info" id="locationInfo"></div>
+</div>
+
+<div class="filter-section">
+  <input class="search-box" id="searchInput" placeholder="대리점명, 지역 검색..." oninput="renderList()">
+</div>
+
+<div class="region-filter" id="regionFilter"></div>
+
+<div class="result-bar">
+  <div>총 <strong id="countNum">165</strong>개 대리점</div>
+  <div class="dist-notice" id="distNotice">⚠️ 거리는 지역 중심 기준 근사값</div>
+</div>
+
+<div class="branch-list" id="branchList"></div>
+<button class="scroll-top" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+const BRANCHES = [{"region":"평택/안성","name":"(주)카라멜에셋 하이","address":"경기 평택시 죽백5로33, 504호(죽백동, 평택세무타워)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"2,510","perf_26h":"2,086","perf_jul":"1,478","members":"5"},{"region":"평택/안성","name":"(주)트루 대성지점","address":"경기 평택시 죽백5로15, 2층(죽백동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김효진","perf_base":"110","perf_26h":"191","perf_jul":"289","members":"14"},{"region":"평택/안성","name":"지에이스타금융서비스(주) 베스트금융지점","address":"경기 평택시 서재로7, 2층(동삭동, 주영빌딩)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"3,214","perf_26h":"2,566","perf_jul":"2,912","members":"31"},{"region":"평택/안성","name":"지에이코리아(주)엠파이어평택","address":"경기 평택시 서재로6, 3층(동삭동, 동재빌딩)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"0","perf_26h":"49","perf_jul":"0","members":"18"},{"region":"평택/안성","name":"지에이코리아(주)다온드림투","address":"경기 평택시 평남로1015, 403호(동삭동, 서재프라자)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"45","perf_26h":"106","perf_jul":"148","members":"5"},{"region":"평택/안성","name":"지에이코리아(주) 에셋마스터오케이지점","address":"경기 평택시 서재1길20, 101호(동삭동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"540","perf_26h":"0","perf_jul":"875","members":"5"},{"region":"평택/안성","name":"(주)우리인슈맨라이프 소사벌지점","address":"경기 평택시 평남로1047-1, 302호(동삭동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"25","perf_26h":"20","perf_jul":"0","members":"7"},{"region":"평택/안성","name":"(주)글로벌금융판매 베스트평택","address":"경기 평택시 평남로1070, 301호(동삭동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"15","perf_26h":"24","perf_jul":"0","members":"23"},{"region":"평택/안성","name":"더베스트 이재명 평택센터","address":"경기 평택시 상서재로2길 56-10","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"162","perf_26h":"72","perf_jul":"366","members":"5"},{"region":"평택/안성","name":"한화피플라이프㈜평택","address":"경기 평택시 세교8길30, 206 207호(세교동, 세교디오네프라자)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"1,766","perf_26h":"1,004","perf_jul":"2,262","members":"40"},{"region":"평택/안성","name":"케이지에이에셋(주) 엠디지점","address":"경기 평택시 만세로1866, J플러자 302호(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"0","perf_26h":"5","perf_jul":"50","members":"23"},{"region":"평택/안성","name":"지에이코리아(주)다성재무센터","address":"경기 평택시 평택4로78, 804호(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"104","perf_26h":"38","perf_jul":"-7","members":"14"},{"region":"평택/안성","name":"(주)엠금융서비스 코리아인슈","address":"경기 평택시 평택4로67, 2층(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"354","perf_26h":"436","perf_jul":"582","members":"6"},{"region":"평택/안성","name":"(주)엠금융서비스 하나로랜드마크인슈","address":"경기 평택시 평택4로67, 202호(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"0","perf_26h":"0","perf_jul":"30","members":"2"},{"region":"평택/안성","name":"(주)엠금융서비스 하나로레이크지점","address":"경기 평택시 평택4로67, 2층(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"0","perf_26h":"0","perf_jul":"46","members":"2"},{"region":"평택/안성","name":"프라임에셋(주) 평택1지점","address":"경기 평택시 비전로39, 1층(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"75","perf_26h":"16","perf_jul":"0","members":"29"},{"region":"평택/안성","name":"지에이스타금융서비스(주) 밸류코어지점","address":"경기 평택시 비전5로20-42, 303 304(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"186","perf_26h":"15","perf_jul":"1,238","members":"4"},{"region":"평택/안성","name":"인카금융서비스(주)다이렉트 비전지점","address":"경기 평택시 비전5로20-38, 803호(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김효진","perf_base":"35","perf_26h":"67","perf_jul":"0","members":"21"},{"region":"평택/안성","name":"(주)더블에셋 평택지점","address":"경기 평택시 문화촌로19번길45, 1층(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"3"},{"region":"평택/안성","name":"(주)위너스에프엔보험대리점 빅토리지점","address":"경기 평택시 비전5로10, 2039호(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"0","perf_26h":"0","perf_jul":"-1","members":"7"},{"region":"평택/안성","name":"주식회사 엠금융서비스 더클래스보험지점","address":"경기 평택시 비전5로7-1, 301(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"3"},{"region":"평택/안성","name":"(주)인슈코아 평택지점","address":"경기 평택시 비전2로196, 507호(비전동, 골든프라자-7)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"220","perf_26h":"358","perf_jul":"555","members":"11"},{"region":"평택/안성","name":"(주)글로벌금융판매 대한라이프평택","address":"경기 평택시 비전5로 19, 205호","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"36","perf_26h":"61","perf_jul":"154","members":"13"},{"region":"평택/안성","name":"케이지에이에셋(주) 한우리지점","address":"경기 평택시 평택5로96번길32-4, 2층 우측(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"186","perf_26h":"60","perf_jul":"77","members":"17"},{"region":"평택/안성","name":"(주)엠금융서비스 하나로굿라이프지점","address":"경기 평택시 중앙로301, 상가동 204호(비전동, 문화아파트)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"46","perf_26h":"23","perf_jul":"106","members":"1"},{"region":"평택/안성","name":"(주)엠금융서비스 리더스인슈지점","address":"경기 평택시 평택5로34번길6-7, 3층(합정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"172","perf_26h":"166","perf_jul":"146","members":"66"},{"region":"평택/안성","name":"프라임에셋(주) 평택8지점","address":"경기 평택시 평택5로34번길109, 2층(합정동, 성광빌딩)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"464","perf_26h":"300","perf_jul":"277","members":"17"},{"region":"평택/안성","name":"(주)엠금융서비스 베스트인슈지점","address":"경기 평택시 평택5로39, 3층(합정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"28","perf_26h":"40","perf_jul":"20","members":"3"},{"region":"평택/안성","name":"(주)엠금융서비스 보험플러스","address":"경기 평택시 조개터로26번길39-17, 2층 202호(합정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"212","perf_26h":"126","perf_jul":"0","members":"8"},{"region":"평택/안성","name":"(주)아너스금융서비스 평택지점","address":"경기 평택시 중앙2로161, 2층(합정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"156","perf_26h":"0","perf_jul":"202","members":"6"},{"region":"평택/안성","name":"(주)엠금융서비스 평안지점","address":"경기 평택시 조개터로5, 2층(합정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"93","perf_26h":"99","perf_jul":"0","members":"13"},{"region":"평택/안성","name":"프라임에셋(주) 평택3지점","address":"경기 평택시 합정동912-14번지 범창빌딩 401호","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"636","perf_26h":"634","perf_jul":"365","members":"17"},{"region":"평택/안성","name":"(주)글로벌금융판매케이에스두레평택","address":"경기 평택시 평택로159, 2층 207호(신대동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"704","perf_26h":"624","perf_jul":"628","members":"2"},{"region":"평택/안성","name":"신한금융플러스 주식회사 쥬피터지점","address":"경기 평택시 평택로163번길30, 2층 201호(신대동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"112","perf_26h":"381","perf_jul":"169","members":"10"},{"region":"평택/안성","name":"메가(주) 인슈에셋메가스타","address":"경기 평택시 고평로50, 107동 1904호(통복동, 평택역SKVIEW)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"120","perf_26h":"0","perf_jul":"123","members":"1"},{"region":"평택/안성","name":"미래에셋금융서비스(주) 히어로라이프비전지사","address":"경기 평택시 고평로13, 301호(통복동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"202","perf_26h":"31","perf_jul":"0","members":"12"},{"region":"평택/안성","name":"(주)에프엠에셋 수도권스타본부 평택통복지점","address":"경기 평택시 통복시장로 12, 102호 (통복동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"36","perf_26h":"74","perf_jul":"0","members":"2"},{"region":"평택/안성","name":"케이지에이에셋(주) 엔플러스","address":"경기 평택시 통복시장로16번길27, 2층 KGA에셋 엔플러스(통복동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"65","perf_26h":"0","perf_jul":"183","members":"5"},{"region":"평택/안성","name":"삼성금융파트너스 미도","address":"경기 평택시 중앙로46, 4층 4010호(평택동, M-프라자)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"359","perf_26h":"318","perf_jul":"709","members":"13"},{"region":"평택/안성","name":"한화생명금융서비스새평택지점","address":"경기 평택시 평택2로20번길15, 4층(평택동, 원빌딩)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"186","perf_26h":"142","perf_jul":"23","members":"37"},{"region":"평택/안성","name":"한화생명금융서비스효승지점","address":"경기 평택시 평택2로20번길15, 6층 효승지점(평택동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"126","perf_26h":"186","perf_jul":"116","members":"54"},{"region":"평택/안성","name":"한화생명금융서비스평택지점","address":"경기 평택시 평택2로20번길15, 2층 평택지점(평택동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"60","perf_26h":"59","perf_jul":"59","members":"34"},{"region":"평택/안성","name":"한화생명금융서비스합정지점","address":"경기 평택시 평택2로20번길15, 5층 합정지점(평택동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"-4","perf_26h":"-1","perf_jul":"0","members":"38"},{"region":"평택/안성","name":"트루평택지점","address":"경기 평택시 평택로32번길28, 5층(평택동, 세라빌딩)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김효진","perf_base":"480","perf_26h":"638","perf_jul":"1,143","members":"64"},{"region":"평택/안성","name":"(주)트루 트루비젼지점","address":"경기 평택시 평택로32번길28, 4층 트루 비젼(평택동, 세라빌딩)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김효진","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"5"},{"region":"평택/안성","name":"(주)트루 드림지점","address":"경기 평택시 평택로32번길28, 4층(평택동, 세라빌딩)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김효진","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"5"},{"region":"평택/안성","name":"(주)엠금융서비스 뉴월드지점","address":"경기 평택시 비전1로57번길68, 1층 우측(비전동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"1"},{"region":"평택/안성","name":"(주)엠금융서비스 하나인슈지점","address":"경기 평택시 평택1로109 , 신명보람아파트상가 106호(통복동, 신명보람아파트)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"3"},{"region":"평택/안성","name":"(주)케이지에이에셋 평택리더","address":"경기 평택시 신촌5로20, 305동 2501호(칠원동, 평택지제역동문굿모닝힐맘시티3단지)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"0","perf_26h":"40","perf_jul":"0","members":"2"},{"region":"평택/안성","name":"엑셀금융서비스(주) 평택사업단","address":"경기 평택시 현신7길20, 1동 201호(용이동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김효진","perf_base":"88","perf_26h":"92","perf_jul":"0","members":"15"},{"region":"평택/안성","name":"주식회사 엠금융서비스 프레시어스에셋지점","address":"경기 평택시 팽성읍 안정로211, 103호","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"3"},{"region":"평택/안성","name":"더금융서비스 명문지점","address":"경기 평택시 고덕면 도시지원1길19, 10층 1027호","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"1,626","perf_26h":"2,021","perf_jul":"1,881","members":"226"},{"region":"평택/안성","name":"㈜트루 효명지점","address":"경기 평택시 경기대로1375, 10층 1002호(서정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"1,424","perf_26h":"1,698","perf_jul":"2,557","members":"111"},{"region":"평택/안성","name":"한화생명금융서비스서정지점","address":"경기 평택시 경기대로1375, 6층 서정지점(서정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"27","perf_26h":"14","perf_jul":"17","members":"24"},{"region":"평택/안성","name":"한화생명금융서비스송북지점","address":"경기 평택시 경기대로1375, 2층 송북지점(서정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"3","perf_26h":"40","perf_jul":"82","members":"32"},{"region":"평택/안성","name":"트루 송탄중앙지점","address":"경기 평택시 서정로266-1, 202호(서정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김효진","perf_base":"46","perf_26h":"0","perf_jul":"172","members":"9"},{"region":"평택/안성","name":"(주)엠금융서비스 굿라이프","address":"경기 평택시 서정북로86, 2층(서정동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"0","perf_26h":"12","perf_jul":"0","members":"11"},{"region":"평택/안성","name":"신한금융플러스 주식회사 지에프송탄지점","address":"경기 평택시 서정북로80, 3층(서정동, 경성빌딩)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김효진","perf_base":"236","perf_26h":"252","perf_jul":"-32","members":"24"},{"region":"평택/안성","name":"(주)글로벌금융판매 케이엘아이평택","address":"경기 평택시 송탄공원로146, 상가 301호(지산동, 아주아파트)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"8"},{"region":"평택/안성","name":"지에이코리아(주)스타즈비전","address":"경기 평택시 장안길69, 2층(장안동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김지혜","perf_base":"241","perf_26h":"79","perf_jul":"100","members":"10"},{"region":"평택/안성","name":"인슈프라자 전체","address":"경기 평택시 탄현로 17-6, 4층","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"364","perf_26h":"473","perf_jul":"732","members":"395"},{"region":"평택/안성","name":"(주)인슈랜드","address":"경기 평택시 송탄로40번길79-6, 306호(이충동, 우미프라자)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김세희","perf_base":"302","perf_26h":"308","perf_jul":"481","members":"7"},{"region":"평택/안성","name":"한화생명금융서비스(주)아너스다옴지점","address":"경기 평택시 첨단대로476, 1층(장당동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"48","perf_26h":"18","perf_jul":"0","members":"10"},{"region":"평택/안성","name":"㈜삼성화재금융서비스 브라보평택지점","address":"경기 평택시 고덕중앙로 320 , 209-211호 ","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"33","perf_26h":"107","perf_jul":"144","members":"19"},{"region":"평택/안성","name":"더베스트 이재명 고덕","address":"경기 평택시 고덕여염로118, 3층","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김효진","perf_base":"51","perf_26h":"27","perf_jul":"421","members":"8"},{"region":"평택/안성","name":"(주)아너스금융서비스 서정지점","address":"경기 평택시 고덕갈평5길26, 807호(고덕동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"11"},{"region":"평택/안성","name":"지에이코리아(주) 새파랑다움지점","address":"경기 평택시 고덕갈평5길28, 501호(고덕동)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"58","perf_26h":"43","perf_jul":"19","members":"11"},{"region":"평택/안성","name":"지에이코리아(주) 럭키지엠케이라이프지점","address":"경기 평택시 진위면 진위2산단로140 , 930호(더퍼스트타워평택)","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"정지혜","perf_base":"480","perf_26h":"377","perf_jul":"506","members":"21"},{"region":"평택/안성","name":"(주)엠금융서비스 평택이노에셋지점","address":"경기 평택시 오성면양교리 556-35번지","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"곽보미","perf_base":"0","perf_26h":"0","perf_jul":"200","members":"4"},{"region":"평택/안성","name":"한화생명금융서비스안중지점","address":"경기 평택시 안중읍현화리 836-4번지 4층 안중지점","addr1":"평택시","addr2":"평택","lat":36.9921,"lng":127.1129,"manager":"김희선","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"13"},{"region":"평택/안성","name":"트루안성","address":"경기 안성시 내혜홀1길14-16, 2층(석정동, 승진빌딩)","addr1":"안성시","addr2":"안성","lat":37.0079,"lng":127.2798,"manager":"곽보미","perf_base":"1,104","perf_26h":"1,014","perf_jul":"350","members":"17"},{"region":"평택/안성","name":"(주)엠금융서비스 하나로프로인슈지점","address":"경기 안성시 진안로1390, 엠금융프로인슈 201호(가현동)","addr1":"안성시","addr2":"안성","lat":37.0079,"lng":127.2798,"manager":"김지혜","perf_base":"0","perf_26h":"0","perf_jul":"127","members":"1"},{"region":"평택/안성","name":"엑셀금융서비스(주) 안성사업단","address":"경기 안성시 공단로19, 2층(신건지동, 삼명빌딩)","addr1":"안성시","addr2":"안성","lat":37.0079,"lng":127.2798,"manager":"김희선","perf_base":"0","perf_26h":"20","perf_jul":"0","members":"11"},{"region":"평택/안성","name":"(주)엠금융서비스 인슈프라임지점","address":"경기 안성시 중앙대학로317, 인슈프라임(옥산동)","addr1":"안성시","addr2":"안성","lat":37.0079,"lng":127.2798,"manager":"김희선","perf_base":"70","perf_26h":"5","perf_jul":"145","members":"32"},{"region":"평택/안성","name":"(주)엠금융서비스 라온에셋","address":"경기 안성시 대덕면 대학3길16, 2층(썬하우스빌딩)","addr1":"안성시","addr2":"안성","lat":37.0079,"lng":127.2798,"manager":"정지혜","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"3"},{"region":"평택/안성","name":"지에이코리아㈜하나로안성","address":"경기 안성시 공도읍 장미길 35, 112호","addr1":"안성시","addr2":"안성","lat":37.0079,"lng":127.2798,"manager":"이슬","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"5"},{"region":"평택/안성","name":"(주)삼성생명금융서비스 가송공도","address":"경기 안성시 공도읍 공도로159, 210호 삼성금융서비스 가송공도지사(반도프라자)","addr1":"안성시","addr2":"안성","lat":37.0079,"lng":127.2798,"manager":"김지혜","perf_base":"52","perf_26h":"38","perf_jul":"28","members":"14"},{"region":"수원","name":"지에이스타금융서비스(주) 베스트금융수원지점","address":"경기 수원시 팔달구 효원로288, 802-1호(인계동, 대원콤비프라자)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"김지혜","perf_base":"1,574","perf_26h":"1,348","perf_jul":"1,344","members":"8"},{"region":"수원","name":"케이지에이에셋(주) 마스타인스지점","address":"경기 수원시 팔달구 효원로278, 1513호(인계동)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"박미선","perf_base":"790","perf_26h":"846","perf_jul":"1,155","members":"24"},{"region":"수원","name":"인카금융서비스 주식회사 가온에셋지점","address":"경기 수원시 팔달구 효원로278 , 1715~1716호(인계동)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"정지혜","perf_base":"761","perf_26h":"749","perf_jul":"732","members":"15"},{"region":"수원","name":"KGA글로벌 파비오","address":"경기 수원시 팔달구 효원로278, ","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"장현화","perf_base":"110","perf_26h":"98","perf_jul":"51","members":"5"},{"region":"수원","name":"엑셀금융서비스(주) 수원사업단","address":"경기 수원시 팔달구 효원로278, 914918호(인계동)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"이슬","perf_base":"70","perf_26h":"62","perf_jul":"0","members":"19"},{"region":"수원","name":"KGA에셋 글로벌리더 올케어지점","address":"경기 수원시 팔달구 권광로159, 1408호(인계동, 수원프라자)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"#N/A","perf_base":"0","perf_26h":"0","perf_jul":"121","members":"0"},{"region":"수원","name":"경기수일","address":"경기 수원시 권선구 효원로268, 3층 경기수일(권선동)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"장현화","perf_base":"300","perf_26h":"309","perf_jul":"300","members":"0"},{"region":"수원","name":"(주)현대홈쇼핑 굿보험몰","address":"경기 수원시 권선구 효원로268, 11층(권선동)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"-","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"6"},{"region":"수원","name":"한화생명금융서비스수일지점","address":"경기 수원시 팔달구 권광로180번길18-19, 2층(인계동)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"장현화","perf_base":"40","perf_26h":"12","perf_jul":"152","members":"20"},{"region":"수원","name":"KGA글로벌 수원","address":"경기 수원시 팔달구 권선로 739, 2층","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"장현화","perf_base":"1,471","perf_26h":"1,332","perf_jul":"977","members":"90"},{"region":"수원","name":"현대홈 빅트리","address":"경기 수원시 팔달구 권선로 739, 2층","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"정지혜","perf_base":"723","perf_26h":"541","perf_jul":"690","members":"33"},{"region":"수원","name":"지에이코리아(주) 에셋마스터싼타티씨지점","address":"경기 수원시 팔달구 인계로130, 3층(인계동, 스퀘어빌딩)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"이슬","perf_base":"82","perf_26h":"242","perf_jul":"-2","members":"45"},{"region":"수원","name":"(주)인슈프라자 스타지점","address":"경기 수원시 팔달구 인계로120, 1011호(인계동, 스마트타워)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"곽보미","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"3"},{"region":"수원","name":"현대홈 위대한","address":"경기 수원시 팔달구 중부대로239번길 5, 3층","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"박미선","perf_base":"462","perf_26h":"458","perf_jul":"919","members":"30"},{"region":"수원","name":"주식회사 디딤돌에셋","address":"경기 수원시 팔달구 인계동 944-2","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"정지혜","perf_base":"548","perf_26h":"495","perf_jul":"328","members":"47"},{"region":"수원","name":"더베스트 김효제 서수원","address":"경기 수원시 권선구 금곡로 204, 3층","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"장현화","perf_base":"1,101","perf_26h":"869","perf_jul":"325","members":"19"},{"region":"수원","name":"더베스트 이재명 수원","address":"경기 수원시 영통구 대학로 12, 5층","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"장현화","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"3"},{"region":"수원","name":"더베스트금융서비스(주) 제우스경기법인지점","address":"경기 수원시 영통구 광교중앙로248번길95-5, 601호(하동)","addr1":"수원시","addr2":"수원","lat":37.2636,"lng":127.0286,"manager":"장현화","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"5"},{"region":"수원","name":"인카금융서비스(주)가온누리","address":"경기 용인시 수지구 포은대로59번길40, 업무동 504호(상현동, 시그니처광교2차)","addr1":"용인시","addr2":"용인","lat":37.241,"lng":127.1775,"manager":"박미선","perf_base":"1,165","perf_26h":"992","perf_jul":"1,976","members":"22"},{"region":"용인/성남","name":"(주)에즈금융서비스 마스터지사","address":"경기 용인시 기흥구 흥덕중앙로55, 414호(영덕동, 리써밋타워)","addr1":"용인시","addr2":"용인","lat":37.241,"lng":127.1775,"manager":"박미선","perf_base":"0","perf_26h":"0","perf_jul":"108","members":"10"},{"region":"용인/성남","name":"현대홈 용인","address":"경기 용인시 기흥구 동백죽전대로 444, 2층 2214호","addr1":"용인시","addr2":"용인","lat":37.241,"lng":127.1775,"manager":"박미선","perf_base":"4,629","perf_26h":"4,360","perf_jul":"5,939","members":"180"},{"region":"용인/성남","name":"지에이코리아(주) 엠파이어라이프엣지점","address":"경기 용인시 기흥구 언동로217번길2, 4층(중동)","addr1":"용인시","addr2":"용인","lat":37.241,"lng":127.1775,"manager":"박미선","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"9"},{"region":"용인/성남","name":"더베스트금융서비스 주식회사 아람지점","address":"경기 성남시 분당구 황새울로360번길21 , 505~506호(서현동, 분당서현신영팰리스타워)","addr1":"성남시","addr2":"성남","lat":37.4196,"lng":127.1267,"manager":"박미선","perf_base":"252","perf_26h":"21","perf_jul":"379","members":"11"},{"region":"용인/성남","name":"한솔금융서비스 주식회사 분당성공사업단1","address":"경기 성남시 중원구 양현로405번길14, 204호(여수동)","addr1":"성남시","addr2":"성남","lat":37.4196,"lng":127.1267,"manager":"장현화","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"0"},{"region":"용인/성남","name":"인슈프라자 분당","address":"경기 성남시 중원구 둔촌대로 107","addr1":"성남시","addr2":"성남","lat":37.4196,"lng":127.1267,"manager":"박미선","perf_base":"52","perf_26h":"69","perf_jul":"124","members":"17"},{"region":"화성동탄","name":"주식회사 지금융코리아 시온인스케어","address":"경기 화성시 병점1로218, 씨네샤르망 B동 307호(병점동)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"장현화","perf_base":"298","perf_26h":"432","perf_jul":"458","members":"14"},{"region":"화성동탄","name":"삼성금융파트너스 병점","address":"경기 화성시 병점1로218, B동 601호(병점동)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"장현화","perf_base":"162","perf_26h":"215","perf_jul":"70","members":"9"},{"region":"화성동탄","name":"(주)엠지에이 화성지점","address":"경기 화성시 여울로4길65-5(능동)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"-","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"1"},{"region":"화성동탄","name":"지에이코리아(주) 해피오산세교지점","address":"경기 화성시 병점동887-2번지 골든스퀘어투 401,402호","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"이슬","perf_base":"137","perf_26h":"59","perf_jul":"0","members":"16"},{"region":"화성동탄","name":"(주)엠금융서비스 우리동탄","address":"경기 용인시 기흥구 서천로201번길14, 811호(농서동)","addr1":"용인시","addr2":"용인","lat":37.241,"lng":127.1775,"manager":"박미선","perf_base":"1,286","perf_26h":"1,463","perf_jul":"1,682","members":"16"},{"region":"화성동탄","name":"(주)에이플러스에셋동탄지점","address":"경기 화성시 동탄기흥로570-6, 2층 에이플러스에셋(영천동, 골든아이타워)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"장현화","perf_base":"795","perf_26h":"823","perf_jul":"1,105","members":"91"},{"region":"화성동탄","name":"더베스트 김효제 동탄","address":"경기 화성시 동탄첨단산업1로27, 금강펜터리움 A동 2501호","addr1":"화성시","addr2":"동탄","lat":37.2005,"lng":127.0756,"manager":"김효진","perf_base":"39","perf_26h":"163","perf_jul":"0","members":"17"},{"region":"화성동탄","name":"지에이스타금융서비스(주) 위드라이프코어지점","address":"경기 화성시 동탄대로23길 93, 2층","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"장현화","perf_base":"324","perf_26h":"524","perf_jul":"542","members":"17"},{"region":"화성동탄","name":"한국보험금융 주식회사 정도보험클리닉지점","address":"경기 화성시 동탄대로677-5, 319호(영천동)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"장현화","perf_base":"526","perf_26h":"449","perf_jul":"422","members":"19"},{"region":"화성동탄","name":"현대홈 동탄(송)","address":"경기 화성시 동탄구 동탄대로 446, 4층","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"정지혜","perf_base":"522","perf_26h":"94","perf_jul":"373","members":"18"},{"region":"화성동탄","name":"현대홈 동탄(권)","address":"경기 화성시 동탄구 동탄대로 446, 4층","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"정지혜","perf_base":"73","perf_26h":"144","perf_jul":"72","members":"23"},{"region":"화성동탄","name":"프라임에셋(주)동탄2지점","address":"경기 화성시 동탄감배산로 143, 202동 1101호","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"장현화","perf_base":"316","perf_26h":"254","perf_jul":"468","members":"54"},{"region":"화성동탄","name":"더베스트금융서비스 주식회사 위드탑지점","address":"경기 화성시 동탄기흥로257번가길 19, 201호 (방교동)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"이슬","perf_base":"-4","perf_26h":"38","perf_jul":"0","members":"13"},{"region":"화성동탄","name":"메가(주) 메가보험뚝딱","address":"경기 화성시 동탄신리천로407, 108호(목동)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"장현화","perf_base":"0","perf_26h":"50","perf_jul":"180","members":"2"},{"region":"화성동탄","name":"(주)맥스인단비","address":"경기 화성시 동탄중심상가1길33, 701호(반송동, 동탄미래도프라자)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"김지혜","perf_base":"30","perf_26h":"18","perf_jul":"0","members":"10"},{"region":"화성동탄","name":"한화생명금융서비스동탄티에프피지점","address":"경기 화성시 동탄원천로163, 1006호(반송동)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"장현화","perf_base":"112","perf_26h":"171","perf_jul":"89","members":"35"},{"region":"화성동탄","name":"케이지에이에셋(주)글로벌동탄","address":"경기 화성시 여울로4길 65-9, 1층 KGA에셋 아이비동탄 (능동)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"이슬","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"0"},{"region":"화성동탄","name":"현대홈 화성","address":"경기 오산시 수목원로 618 3층","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"정지혜","perf_base":"968","perf_26h":"862","perf_jul":"591","members":"19"},{"region":"화성동탄","name":"현대홈 오산","address":"경기 오산시 수목원로 618 3층","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"정지혜","perf_base":"359","perf_26h":"246","perf_jul":"565","members":"29"},{"region":"화성동탄","name":"더베스트 김효제 오산","address":"경기 오산시 독산성로 425 더퍼스트타워세교, 725호","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"정지혜","perf_base":"52","perf_26h":"175","perf_jul":"268","members":"13"},{"region":"화성동탄","name":"(주)글로벌금융판매 베스트경인","address":"경기 오산시 내삼미로79번길 48, 4층","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"이슬","perf_base":"132","perf_26h":"382","perf_jul":"709","members":"44"},{"region":"화성동탄","name":"인카금융서비스(주) 이든금융지점","address":"경기 오산시 내삼미로79번길52, 304호(수청동)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"정지혜","perf_base":"184","perf_26h":"177","perf_jul":"327","members":"42"},{"region":"화성동탄","name":"(주)퍼스트에셋 운암","address":"경기 오산시 성호새싹38번길10(오산동)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"장현화","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"2"},{"region":"화성동탄","name":"케이지에이에셋(주) 오산지점","address":"경기 오산시 성호대로122, 403호(원동, 메디칼프라자)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"정지혜","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"19"},{"region":"화성동탄","name":"(주)인슈프라자 신오산","address":"경기 오산시 운천로62, 3층 신오산지점(원동, 인슈프라자)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"김세희","perf_base":"608","perf_26h":"296","perf_jul":"0","members":"9"},{"region":"화성동탄","name":"한화생명금융서비스오산지점","address":"경기 오산시 운천로62, 2층 한화생명 오산지점(원동)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"장현화","perf_base":"99","perf_26h":"98","perf_jul":"33","members":"71"},{"region":"화성동탄","name":"지에이코리아(주)해피오산","address":"경기 오산시 운암로17, 601호(원동, 중앙상가빌딩)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"정지혜","perf_base":"658","perf_26h":"666","perf_jul":"1,120","members":"24"},{"region":"화성동탄","name":"더블유에셋(주) 오산스마트본부","address":"경기 오산시 운암로17, 4층(원동, 중앙상가빌딩)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"이슬","perf_base":"220","perf_26h":"324","perf_jul":"1,191","members":"7"},{"region":"화성동탄","name":"유퍼스트보험마케팅(주) 오산지점","address":"경기 오산시 원동로39, 301호(원동)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"박미선","perf_base":"-1","perf_26h":"0","perf_jul":"100","members":"1"},{"region":"화성동탄","name":"한국보험금융(주)오산","address":"경기 오산시 오산로164, 8층 803호(원동, 양우프라자)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"장현화","perf_base":"56","perf_26h":"44","perf_jul":"22","members":"5"},{"region":"화성동탄","name":"한화피플라이프㈜오산","address":"경기 오산시 경기대로154 , 508- 509호(원동, 패션폴라리스)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"이슬","perf_base":"0","perf_26h":"28","perf_jul":"53","members":"21"},{"region":"화성동탄","name":"(주)우리인슈맨라이프 오산지점","address":"경기 오산시 오산로235, 701호(오산동, 메디타워)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"-","perf_base":"19","perf_26h":"0","perf_jul":"0","members":"4"},{"region":"화성동탄","name":"(주)인슈프라자 운암","address":"경기 오산시 수목원로88번길35, B동 2408B호(가수동, 현대테라타워CMC지식산업센터)","addr1":"오산시","addr2":"오산","lat":37.1499,"lng":127.0774,"manager":"곽보미","perf_base":"34","perf_26h":"17","perf_jul":"0","members":"3"},{"region":"화성기타","name":"인카금융서비스(주)스카이본부","address":"경기 화성시 봉담읍상리 688-2번지 망고타운 801호","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"정지혜","perf_base":"770","perf_26h":"351","perf_jul":"459","members":"10"},{"region":"화성기타","name":"주식회사원금융서비스 엠브이피지점","address":"경기 화성시 효행구 봉담읍 상리중심상가길 28-8 6층","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"박미선","perf_base":"514","perf_26h":"828","perf_jul":"1,037","members":"19"},{"region":"화성기타","name":"한솔금융서비스주식회사 경기남부사업단","address":"경기 화성시 봉담읍 삼천병마로1352","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"이슬","perf_base":"238","perf_26h":"0","perf_jul":"0","members":"16"},{"region":"화성기타","name":"더베스트 김효제 향남","address":"경기 화성시 향남읍 상신하길로320, 801호(탑스프라자)","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"장현화","perf_base":"286","perf_26h":"131","perf_jul":"269","members":"18"},{"region":"화성기타","name":"(주)글로벌금융판매 케이엘아이푸른화성","address":"경기 화성시 향남읍 상신하길로298번길 11, 1동 702호","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"이슬","perf_base":"0","perf_26h":"76","perf_jul":"0","members":"3"},{"region":"화성기타","name":"유퍼스트보험마케팅(주) 위드유","address":"경기 화성시 만세구 향남읍 상신하길로328번길 26","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"이슬","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"5"},{"region":"화성기타","name":"더좋은보험금융(주)화성","address":"경기 화성시 향남읍 3.1만세로1021, 2층 201호","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"박미선","perf_base":"48","perf_26h":"177","perf_jul":"317","members":"10"},{"region":"화성기타","name":"더베스트 김효제 남양","address":"경기 화성시 남양읍 시청로 115, 임광프라자 604호","addr1":"화성시","addr2":"남양","lat":37.207,"lng":126.798,"manager":"김효진","perf_base":"158","perf_26h":"219","perf_jul":"193","members":"17"},{"region":"안산기타","name":"현대홈 안산","address":"경기 안산시 단원구 원고잔로 17","addr1":"안산시","addr2":"안산","lat":37.3219,"lng":126.8309,"manager":"이슬","perf_base":"308","perf_26h":"304","perf_jul":"0","members":"17"},{"region":"안산기타","name":"더베스트 김효제 경기AS","address":"경기 안산시 상록구 조구나리1길 57, 2-3층","addr1":"안산시","addr2":"안산","lat":37.3219,"lng":126.8309,"manager":"이슬","perf_base":"231","perf_26h":"343","perf_jul":"124","members":"12"},{"region":"안산기타","name":"케이지에이에셋(주) 마중물지점","address":"경기 화성시 꽃내음1길 5-4, 6층 612호 ","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"이슬","perf_base":"28","perf_26h":"14","perf_jul":"0","members":"4"},{"region":"안산기타","name":"(주)인슈코아 신수원지점","address":"경기 화성시 매송면 푸른들판로 2030","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"이슬","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"1"},{"region":"안산기타","name":"(주)글로벌금융씨앤와이","address":"경기 화성시 정남면 내향로62","addr1":"화성시","addr2":"화성","lat":37.1996,"lng":126.8312,"manager":"이슬","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"1"},{"region":"인천서해","name":"인슈프라자 인천","address":"인천광역시 남동구 선수촌공원로17번길 2","addr1":"인천시","addr2":"인천","lat":37.4563,"lng":126.7052,"manager":"김세희","perf_base":"931","perf_26h":"996","perf_jul":"894","members":"30"},{"region":"인천서해","name":"더베스트 이재명 인천","address":"인천광역시 부평구 주부토로 236","addr1":"인천시","addr2":"인천","lat":37.4563,"lng":126.7052,"manager":"김세희","perf_base":"202","perf_26h":"90","perf_jul":"561","members":"10"},{"region":"인천서해","name":"현대홈 인천","address":"경기 인천시 인천광역시 남동구 논고개로 61, 4층","addr1":"인천시","addr2":"인천","lat":37.4563,"lng":126.7052,"manager":"김세희","perf_base":"615","perf_26h":"537","perf_jul":"501","members":"19"},{"region":"인천서해","name":"현대홈 부천","address":"경기 부천시 원미구 중동로254번길 90, 6층","addr1":"부천시","addr2":"부천","lat":37.5034,"lng":126.766,"manager":"김세희","perf_base":"300","perf_26h":"208","perf_jul":"332","members":"19"},{"region":"인천서해","name":"주식회사 엑시스금융서비스","address":"경기 부천시 길주로81, 801-3호(상동)","addr1":"부천시","addr2":"부천","lat":37.5034,"lng":126.766,"manager":"-","perf_base":"0","perf_26h":"0","perf_jul":"0","members":"14"},{"region":"인천서해","name":"더베스트 김효제 청라","address":"인천광역시 서해구 청라커낼로288번길 26","addr1":"인천시","addr2":"청라","lat":37.525,"lng":126.6483,"manager":"김세희","perf_base":"661","perf_26h":"384","perf_jul":"904","members":"16"},{"region":"인천서해","name":"현대홈 스타","address":"경기 시흥시 수인로3312번길 16, 7층","addr1":"시흥시","addr2":"시흥","lat":37.38,"lng":126.8029,"manager":"김세희","perf_base":"265","perf_26h":"0","perf_jul":"0","members":"24"},{"region":"인천서해","name":"더베스트 김효제 경기VIP","address":"경기 안양시 동안구 시민대로 115","addr1":"안양시","addr2":"안양","lat":37.3943,"lng":126.9568,"manager":"이슬","perf_base":"257","perf_26h":"236","perf_jul":"273","members":"14"},{"region":"인천서해","name":"미래에셋금융서비스(주) 그로우지사","address":"경기 광명시 일직로12번길21, 503호(일직동, SH&01프라자)","addr1":"광명시","addr2":"광명","lat":37.4789,"lng":126.864,"manager":"박미선","perf_base":"580","perf_26h":"250","perf_jul":"830","members":"25"},{"region":"기타","name":"(주)현대홈쇼핑 에스콜","address":"서울 강동구 올림픽로70길34(천호동, 현대홈쇼핑)","addr1":"강동구","addr2":"강동","lat":37.5301,"lng":127.1239,"manager":"박미선","perf_base":"0","perf_26h":"0","perf_jul":"36","members":"6"},{"region":"기타","name":"현대홈 하남미사","address":"경기 하남시 미사대로 520","addr1":"하남시","addr2":"하남","lat":37.5392,"lng":127.2149,"manager":"박미선","perf_base":"207","perf_26h":"165","perf_jul":"32","members":"23"},{"region":"기타","name":"현대홈 강동하남","address":"경기 하남시 미사대로 520","addr1":"하남시","addr2":"하남","lat":37.5392,"lng":127.2149,"manager":"박미선","perf_base":"61","perf_26h":"223","perf_jul":"95","members":"11"},{"region":"기타","name":"지에이코리아(주) 에셋마스터마스타인스지점","address":"서울 송파구 새말로5길11, 2층(문정동)","addr1":"송파구","addr2":"송파","lat":37.5145,"lng":127.106,"manager":"박미선","perf_base":"1,119","perf_26h":"1,046","perf_jul":"570","members":"10"},{"region":"기타","name":"현대홈 강북","address":"서울특별시 도봉구 도봉로152가길 176, 지하1층","addr1":"도봉구","addr2":"도봉","lat":37.6688,"lng":127.047,"manager":"정지혜","perf_base":"973","perf_26h":"1,363","perf_jul":"1,403","members":"46"},{"region":"기타","name":"더베스트 이재명 구미","address":"경상 구미시 형곡동로 61-2, 2층","addr1":"구미시","addr2":"구미","lat":36.1192,"lng":128.3448,"manager":"정지혜","perf_base":"276","perf_26h":"38","perf_jul":"0","members":"5"},{"region":"기타","name":"더베스트 이재명 당진","address":"충청 당진시 시청1로 78","addr1":"당진시","addr2":"당진","lat":36.8901,"lng":126.6278,"manager":"김효진","perf_base":"105","perf_26h":"0","perf_jul":"0","members":"3"},{"region":"기타","name":"KGA글로벌 진천","address":"충북 진천군","addr1":"진천군","addr2":"진천","lat":36.8548,"lng":127.4329,"manager":"박미선","perf_base":"-6","perf_26h":"0","perf_jul":"0","members":"10"}];
+
+let userLat = null, userLng = null;
+let selectedRegion = '전체';
+
+// 지역 탭 생성
+const regions = ['전체', ...new Set(BRANCHES.map(b => b.addr2))];
+const rf = document.getElementById('regionFilter');
+regions.forEach(r => {
+  const btn = document.createElement('button');
+  btn.className = 'region-tab' + (r === '전체' ? ' active' : '');
+  btn.textContent = r;
+  btn.onclick = () => {
+    selectedRegion = r;
+    document.querySelectorAll('.region-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderList();
+  };
+  rf.appendChild(btn);
+});
+
+function haversine(a, b, c, d) {
+  const R = 6371, dA = (c-a)*Math.PI/180, dB = (d-b)*Math.PI/180;
+  const x = Math.sin(dA/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dB/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+function getLocation() {
+  const btn = document.getElementById('gpsBtn');
+  btn.className = 'gps-btn loading';
+  btn.innerHTML = '<span>⏳</span> 위치 확인 중...';
+  if (!navigator.geolocation) { alert('위치 기능 미지원 브라우저예요.'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    userLat = pos.coords.latitude;
+    userLng = pos.coords.longitude;
+    btn.className = 'gps-btn done';
+    btn.innerHTML = '<span>✅</span> 위치 확인됨 · 다시 확인';
+    const info = document.getElementById('locationInfo');
+    info.className = 'location-info show';
+    info.innerHTML = `📌 위도 ${userLat.toFixed(5)} / 경도 ${userLng.toFixed(5)}`;
+    document.getElementById('distNotice').className = 'dist-notice show';
+    renderList();
+  }, err => {
+    alert(err.code === 1 ? '위치 권한을 허용해 주세요.' : '위치를 가져올 수 없어요.');
+    btn.className = 'gps-btn';
+    btn.innerHTML = '<span>📡</span> 내 현재 위치 확인하기';
+  }, {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
+}
+
+function openNaver(addr, name, type) {
+  const query = encodeURIComponent(addr);
+  const n = encodeURIComponent(name);
+  const scheme = type === 'walk' ? 'walk' : type === 'transit' ? 'public' : 'car';
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  // 네이버지도 앱 딥링크 (주소 검색 방식)
+  const nmapUrl = `nmap://search?query=${query}&appname=gyeonggi.branch.finder`;
+  // 네이버지도 웹 검색 URL (주소만 검색 → 가장 안정적)
+  const webUrl = `https://m.map.naver.com/search2/search.naver?query=${query}`;
+
+  if (isAndroid) {
+    // Android: intent URL로 앱 실행 → 실패 시 웹으로
+    const intentUrl = `intent://search?query=${query}&appname=gyeonggi.branch.finder#Intent;scheme=nmap;package=com.nhn.android.nmap;S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+    window.location.href = intentUrl;
+  } else if (isIOS) {
+    // iOS: nmap:// 시도 → 1.5초 후 웹 fallback
+    window.location.href = nmapUrl;
+    setTimeout(() => window.open(webUrl, '_blank'), 1500);
+  } else {
+    // PC: 그냥 웹 열기
+    window.open(webUrl, '_blank');
+  }
+}
+
+function fmtDist(km) {
+  return km < 1 ? Math.round(km*1000)+'m' : km.toFixed(1)+'km';
+}
+
+function renderList() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  let list = BRANCHES
+    .filter(b => selectedRegion === '전체' || b.addr2 === selectedRegion)
+    .filter(b => !q || b.name.toLowerCase().includes(q) || b.address.toLowerCase().includes(q) || b.region.includes(q) || b.addr2.includes(q))
+    .map(b => ({...b, dist: userLat !== null ? haversine(userLat, userLng, b.lat, b.lng) : null}));
+
+  if (userLat !== null) list.sort((a,b) => (a.dist??9999)-(b.dist??9999));
+
+  document.getElementById('countNum').textContent = list.length;
+
+  const cont = document.getElementById('branchList');
+  if (!list.length) {
+    cont.innerHTML = `<div class="empty"><div class="ico">🔍</div><p>검색 결과가 없어요</p></div>`;
+    return;
+  }
+
+  cont.innerHTML = list.map((b, i) => {
+    const rClass = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+    const cardBorder = i===0?'near-1':i===1?'near-2':i===2?'near-3':'';
+    const distHtml = b.dist !== null
+      ? `<div class="card-dist"><div class="dist-value">${fmtDist(b.dist)}</div><div class="dist-label">거리(지역중심)</div></div>`
+      : `<div class="card-dist"><div class="dist-unknown">위치미확인</div></div>`;
+    const safeAddr = b.address.replace(/'/g,"\'");
+    const safeName = b.name.replace(/'/g,"\'");
+    return `
+<div class="branch-card ${cardBorder}">
+  <div class="card-top">
+    <div class="rank-badge ${rClass}">${i+1}</div>
+    <div class="name-area">
+      <div class="card-name">${b.name}</div>
+      <div class="card-manager">매핑매니저 <span>${b.manager}</span></div>
+    </div>
+    ${distHtml}
+  </div>
+  <div class="card-tags">
+    <span class="tag tag-region">${b.region}</span>
+    <span class="tag tag-city">📍 ${b.addr2}</span>
+  </div>
+  <div class="card-address">🏢 ${b.address}</div>
+  <div class="perf-row">
+    <div class="perf-box">
+      <div class="perf-label">기준실적</div>
+      <div class="perf-value">${b.perf_base}</div>
+    </div>
+    <div class="perf-box">
+      <div class="perf-label">7월실적</div>
+      <div class="perf-value highlight">${b.perf_jul}</div>
+    </div>
+    <div class="perf-box">
+      <div class="perf-label">26年上</div>
+      <div class="perf-value">${b.perf_26h}</div>
+    </div>
+    <div class="perf-box">
+      <div class="perf-label">재적</div>
+      <div class="perf-value">${b.members}</div>
+    </div>
+  </div>
+  <div class="card-actions">
+    <button class="btn-car" onclick="openNaver('${safeAddr}','${safeName}','car')">🚗 네이버지도 내비</button>
+    <button class="btn-icon walk" onclick="openNaver('${safeAddr}','${safeName}','walk')" title="도보">🚶</button>
+    <button class="btn-icon transit" onclick="openNaver('${safeAddr}','${safeName}','transit')" title="대중교통">🚌</button>
+  </div>
+</div>`;
+  }).join('');
+}
+
+window.addEventListener('scroll', () => {
+  document.getElementById('scrollTopBtn').className = 'scroll-top' + (window.scrollY > 300 ? ' show' : '');
+});
+
+renderList();
+</script>
+</body>
+</html>
